@@ -33,10 +33,22 @@ public:
 			push_back(led);
 		}
 	}
+	void update(ofBaseHasPixels& image) {
+		update(image.getPixelsRef());
+	}
+	void update(ofPixels& pixels) {
+		ofVec2f center(pixels.getWidth() / 2, pixels.getHeight() / 2);
+		for(int i = 0; i < size(); i++) {
+			ofVec2f position = center + at(i).position;
+			at(i).color = pixels.getColor(position.x, position.y);
+		}		
+	}
 	void draw() {
+		ofPushStyle();
 		for(int i = 0; i < size(); i++) {
 			at(i).draw();
 		}
+		ofPopStyle();
 	}
 };
 float shortestPath(float a, float b, float range) {
@@ -47,22 +59,26 @@ float shortestPath(float a, float b, float range) {
 class ofApp : public ofBaseApp {
 public:
 	LedRing ledRing;
+	ofFbo fbo;
+	ofPixels fboPixels;
 	void setup() {
 		ledRing.setup();
+		fbo.allocate(512, 512);
 	}
 	void update() {
-		float mouseTheta = atan2f(mouseY - ofGetHeight() / 2, mouseX - ofGetWidth() / 2);
-		mouseTheta = fmodf(ofRadToDeg(mouseTheta) + 180, 360);
-		float rate = 180;
-		float arcLength = 90;
-		for(int i = 0; i < ledRing.size(); i++) {
-			float distance = shortestPath(mouseTheta, ledRing[i].theta, 360);
-			distance = fabsf(distance - 180);
-			ledRing[i].color = ofColor(ofMap(distance, 0, arcLength, 255, 0, true));
-		}
+		fbo.begin();
+		ofClear(0);
+		ofTranslate(256, 256);
+		ofRotate(mouseX);
+		ofScale(200, 200);
+		ofRect(-.5, -.5, 1, 1);
+		fbo.end();
+		fbo.readToPixels(fboPixels);
+		ledRing.update(fboPixels);
 	}
 	void draw() {
 		ofBackground(0);
+		//fbo.draw(0, 0);
 		ofTranslate(ofGetWidth() / 2, ofGetHeight() / 2);
 		ledRing.draw();
 	}
