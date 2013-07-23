@@ -1,5 +1,5 @@
 #include "ofMain.h"
-class LED {
+class Led {
 public:
 	static ofImage glow;
 	static float scale;
@@ -22,34 +22,50 @@ public:
 		ofPopMatrix();
 	}
 };
-ofImage LED::glow;
-float LED::scale = .3;
-class ofApp : public ofBaseApp {
+ofImage Led::glow;
+float Led::scale = .3;
+class LedRing : public vector<Led> {
 public:
-	vector<LED> leds;
-	void setup() {
-		int n = 64;
-		float radius = 100;
-		LED::setup();
+	void setup(int n = 64, float radius = 100) {
+		Led::setup();
 		for(int i = 0; i < n; i++) {
-			LED led;
+			Led led;
 			led.theta = ofMap(i, 0, n, 0, 360);
 			led.position = ofVec2f(radius, 0).rotate(led.theta);
 			led.color = ofColor::white;
-			leds.push_back(led);
+			push_back(led);
 		}
 	}
+	void draw() {
+		for(int i = 0; i < size(); i++) {
+			at(i).draw();
+		}
+	}
+};
+float shortestPath(float a, float b, float range) {
+	a = fmodf(a, range), b = fmodf(b, range);
+	float c = fabsf(a - b), d = fabsf((a - range) - b);
+	return MIN(c, d);
+}
+class ofApp : public ofBaseApp {
+public:
+	LedRing ledRing;
+	void setup() {
+		ledRing.setup();
+	}
 	void update() {
-		for(int i = 0; i < leds.size(); i++) {
-			leds[i].color = ofColor(ofMap(sin(ofGetElapsedTimef() * 20 + i), -1, 1, 0, 255));
+		float rate = 180;
+		float arcLength = 90;
+		for(int i = 0; i < ledRing.size(); i++) {
+			float distance = shortestPath(ofGetElapsedTimef() * rate, ledRing[i].theta, 360);
+			distance = fabsf(distance - 180);
+			ledRing[i].color = ofColor(ofMap(distance, 0, arcLength, 255, 0, true));
 		}
 	}
 	void draw() {
 		ofBackground(0);
 		ofTranslate(ofGetWidth() / 2, ofGetHeight() / 2);
-		for(int i = 0; i < leds.size(); i++) {
-			leds[i].draw();
-		}
+		ledRing.draw();
 	}
 };
 int main( ){
