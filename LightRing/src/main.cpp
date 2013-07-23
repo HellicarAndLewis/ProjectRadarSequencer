@@ -12,13 +12,10 @@ public:
 	}
 	void draw() {
 		ofPushMatrix();
-		ofPushStyle();
-		ofNoFill();
 		ofSetColor(color);
 		ofTranslate(position);
 		ofScale(scale, scale);
 		glow.draw(0, 0);
-		ofPopStyle();
 		ofPopMatrix();
 	}
 };
@@ -26,7 +23,7 @@ ofImage Led::glow;
 float Led::scale = .3;
 class LedRing : public vector<Led> {
 public:
-	void setup(int n = 64, float radius = 100) {
+	void setup(int n = 64, float radius = 128) {
 		Led::setup();
 		for(int i = 0; i < n; i++) {
 			Led led;
@@ -54,10 +51,12 @@ public:
 		ledRing.setup();
 	}
 	void update() {
+		float mouseTheta = atan2f(mouseY - ofGetHeight() / 2, mouseX - ofGetWidth() / 2);
+		mouseTheta = fmodf(ofRadToDeg(mouseTheta) + 180, 360);
 		float rate = 180;
 		float arcLength = 90;
 		for(int i = 0; i < ledRing.size(); i++) {
-			float distance = shortestPath(ofGetElapsedTimef() * rate, ledRing[i].theta, 360);
+			float distance = shortestPath(mouseTheta, ledRing[i].theta, 360);
 			distance = fabsf(distance - 180);
 			ledRing[i].color = ofColor(ofMap(distance, 0, arcLength, 255, 0, true));
 		}
@@ -69,6 +68,6 @@ public:
 	}
 };
 int main( ){
-	ofSetupOpenGL(1280, 720, OF_WINDOW);
+	ofSetupOpenGL(512, 512, OF_WINDOW);
 	ofRunApp(new ofApp());
 }
