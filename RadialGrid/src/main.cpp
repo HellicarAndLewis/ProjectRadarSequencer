@@ -1,65 +1,21 @@
 #include "ofMain.h"
-int thetaDivisions = 16, radialDivisions = 4;
-float startRadius = .4, endRadius = 1;
-ofVec2f polarToCartesian(float theta, float radius) {
-	return ofVec2f(cos(theta) * radius, sin(theta) * radius);
-}
-ofVec2f cartesianToPolar(float x, float y) {
-	float theta = fmodf(atan2f(y, x) + TWO_PI, TWO_PI);
-	return ofVec2f(theta, sqrtf((x * x) + (y * y)));
-}
-void getGridCoordinates(float x, float y, int& i, int& j) {
-	float nx = ofMap(x, 0, ofGetWidth(), -1, 1);
-	float ny = ofMap(y, 0, ofGetHeight(), -1, 1);
-	ofVec2f cur = cartesianToPolar(nx, ny);
-	i = ofMap(cur.x, 0, TWO_PI, 0, thetaDivisions, true);
-	j = ofMap(cur.y, startRadius, endRadius, 0, radialDivisions, true);
-	j = MIN(j, radialDivisions - 1);
-}
+#include "RadialGrid.h"
 class ofApp : public ofBaseApp {
 public:
-	ofMesh mesh;
-	vector< vector<ofMesh> > quads;
+	RadialGrid grid;
 	void setup() {
-		mesh.setMode(OF_PRIMITIVE_LINES);
-		quads.resize(thetaDivisions, vector<ofMesh>(radialDivisions));
-		for(int i = 0; i < thetaDivisions; i++) {
-			for(int j = 0; j < radialDivisions; j++) {
-				float left = ofMap(i, 0, thetaDivisions, 0, TWO_PI);
-				float right = ofMap(i + 1, 0, thetaDivisions, 0, TWO_PI);
-				float top = ofMap(j, 0, radialDivisions, startRadius, endRadius);
-				float bottom = ofMap(j + 1, 0, radialDivisions, startRadius, endRadius);
-				ofVec2f nw = polarToCartesian(left, top);
-				ofVec2f ne = polarToCartesian(right, top);
-				ofVec2f sw = polarToCartesian(left, bottom);
-				ofVec2f se = polarToCartesian(right, bottom);
-				mesh.addVertex(nw);
-				mesh.addVertex(ne);
-				mesh.addVertex(nw);
-				mesh.addVertex(sw);
-				if(j + 1 == radialDivisions) {
-					mesh.addVertex(sw);
-					mesh.addVertex(se);
-				}
-				ofMesh& quad = quads[i][j];
-				quad.setMode(OF_PRIMITIVE_LINE_LOOP);
-				quad.addVertex(nw);
-				quad.addVertex(ne);
-				quad.addVertex(se);
-				quad.addVertex(sw);
-			}
-		}
+		grid.setup();
 	}
 	void draw() {
 		ofBackground(0);
 		ofTranslate(ofGetWidth() / 2, ofGetHeight() / 2);
 		ofScale(ofGetWidth() / 2, ofGetHeight() / 2);
 		ofSetColor(ofColor::white);
-		mesh.draw();
+		grid.draw();
 		int i, j;
 		getGridCoordinates(mouseX, mouseY, i, j);
 		ofSetColor(ofColor::red);
-		quads[i][j].draw();
+		grid.draw(i, j);
 	}
 };
 int main( ){
