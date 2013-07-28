@@ -28,6 +28,7 @@
 		272B86FC179F4C8B00084EB4 /* tinyxmlerror.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 272B86F6179F4C8B00084EB4 /* tinyxmlerror.cpp */; };
 		272B86FD179F4C8B00084EB4 /* tinyxmlparser.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 272B86F7179F4C8B00084EB4 /* tinyxmlparser.cpp */; };
 		272B86FE179F4C8B00084EB4 /* ofxXmlSettings.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 272B86F9179F4C8B00084EB4 /* ofxXmlSettings.cpp */; };
+		278E57D417A5B9070008AA9F /* CoreMIDI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 278E57D317A5B9070008AA9F /* CoreMIDI.framework */; };
 		45cc483a999bf1065a6b926c53724159 /* Distance.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 9dbd717072c35d324e1016697d7aa720 /* Distance.cpp */; };
 		5cc34d433f5806179935b89ddc75729f /* Flow.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 03a75a648bc4cf1d9dedd0cea7826717 /* Flow.cpp */; };
 		63020f16c7e8ded9801112417e67ad38 /* ofxCvImage.cpp in Sources */ = {isa = PBXBuildFile; fileRef = c6151136d101f857dae12722e3c42f4a /* ofxCvImage.cpp */; };
@@ -183,6 +184,10 @@
 		272B86F7179F4C8B00084EB4 /* tinyxmlparser.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = tinyxmlparser.cpp; sourceTree = "<group>"; };
 		272B86F9179F4C8B00084EB4 /* ofxXmlSettings.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = ofxXmlSettings.cpp; sourceTree = "<group>"; };
 		272B86FA179F4C8B00084EB4 /* ofxXmlSettings.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ofxXmlSettings.h; sourceTree = "<group>"; };
+		278E57D017A5B7B00008AA9F /* LedRing.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = LedRing.h; sourceTree = "<group>"; };
+		278E57D117A5B7B00008AA9F /* RadialGrid.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RadialGrid.h; sourceTree = "<group>"; };
+		278E57D217A5B7B00008AA9F /* Sequencer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Sequencer.h; sourceTree = "<group>"; };
+		278E57D317A5B9070008AA9F /* CoreMIDI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreMIDI.framework; path = ../../../../../../../System/Library/Frameworks/CoreMIDI.framework; sourceTree = "<group>"; };
 		2e411f99e3ab7154484b4f96165f5cff /* kmeans_index.h */ = {isa = PBXFileReference; explicitFileType = sourcecode.c.h; fileEncoding = 30; name = kmeans_index.h; path = ../../../addons/ofxOpenCv/libs/opencv/include/opencv2/flann/kmeans_index.h; sourceTree = SOURCE_ROOT; };
 		30884ecd9c171ab1b1bdfc3f6449c692 /* cv.hpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.c.h; fileEncoding = 30; name = cv.hpp; path = ../../../addons/ofxOpenCv/libs/opencv/include/opencv/cv.hpp; sourceTree = SOURCE_ROOT; };
 		319268d200f1ba567e4ccff97a1babd8 /* cxeigen.hpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.c.h; fileEncoding = 30; name = cxeigen.hpp; path = ../../../addons/ofxOpenCv/libs/opencv/include/opencv/cxeigen.hpp; sourceTree = SOURCE_ROOT; };
@@ -345,6 +350,7 @@
 				E4C2424810CC5A17004149E2 /* Cocoa.framework in Frameworks */,
 				E4C2424910CC5A17004149E2 /* IOKit.framework in Frameworks */,
 				E7E077E515D3B63C0020DFD4 /* CoreVideo.framework in Frameworks */,
+				278E57D417A5B9070008AA9F /* CoreMIDI.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -640,6 +646,17 @@
 			path = src;
 			sourceTree = "<group>";
 		};
+		278E57CF17A5B7B00008AA9F /* SharedCode */ = {
+			isa = PBXGroup;
+			children = (
+				278E57D017A5B7B00008AA9F /* LedRing.h */,
+				278E57D117A5B7B00008AA9F /* RadialGrid.h */,
+				278E57D217A5B7B00008AA9F /* Sequencer.h */,
+			);
+			name = SharedCode;
+			path = ../SharedCode;
+			sourceTree = "<group>";
+		};
 		37cf39b443acb0f86b1351ed5c62e3f4 /* src */ = {
 			isa = PBXGroup;
 			children = (
@@ -811,6 +828,7 @@
 		BBAB23C913894ECA00AA2426 /* system frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				278E57D317A5B9070008AA9F /* CoreMIDI.framework */,
 				E7F985F515E0DE99003869B5 /* Accelerate.framework */,
 				E4C2424410CC5A17004149E2 /* AppKit.framework */,
 				E4C2424510CC5A17004149E2 /* Cocoa.framework */,
@@ -860,6 +878,7 @@
 			children = (
 				E4B6FCAD0C3E899E008CF71C /* openFrameworks-Info.plist */,
 				E4EB6923138AFD0F00A09F29 /* Project.xcconfig */,
+				278E57CF17A5B7B00008AA9F /* SharedCode */,
 				E4B69E1C0A3A1BDC003C02F2 /* src */,
 				E4EEC9E9138DF44700A80321 /* openFrameworks */,
 				BB4B014C10F69532006C3DED /* addons */,

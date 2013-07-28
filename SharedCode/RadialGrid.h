@@ -9,9 +9,7 @@ ofVec2f cartesianToPolar(float x, float y) {
 	return ofVec2f(theta, sqrtf((x * x) + (y * y)));
 }
 void getGridCoordinates(float x, float y, int& i, int& j) {
-	float nx = ofMap(x, 0, ofGetWidth(), -1, 1);
-	float ny = ofMap(y, 0, ofGetHeight(), -1, 1);
-	ofVec2f cur = cartesianToPolar(nx, ny);
+	ofVec2f cur = cartesianToPolar(x, y);
 	i = ofMap(cur.x, 0, TWO_PI, 0, thetaDivisions, true);
 	j = ofMap(cur.y, startRadius, endRadius, 0, radialDivisions, true);
 	j = MIN(j, radialDivisions - 1);
