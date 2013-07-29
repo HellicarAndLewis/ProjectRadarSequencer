@@ -3,7 +3,7 @@
 #include "ofMain.h"
 #include "ofxMidi.h"
 
-class Sequencer : ofThread {
+class Sequencer : public ofThread {
 protected:
 	ofxMidiOut midiOut;
 	
@@ -71,6 +71,13 @@ public:
 			return updateBuffer[row][col];
 		} else {
 			return false;
+		}
+	}
+	void clearStates() {
+		for(int i = 0; i < rows; i++) {
+			for(int j = 0; j < cols; j++) {
+				updateBuffer[i][j] = false;
+			}
 		}
 	}
 	void update() {

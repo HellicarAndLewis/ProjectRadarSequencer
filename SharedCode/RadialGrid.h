@@ -1,41 +1,31 @@
 #include "ofMain.h"
-int thetaDivisions = 16, radialDivisions = 4;
 float startRadius = .4, endRadius = 1;
-ofVec2f polarToCartesian(float theta, float radius) {
-	return ofVec2f(cos(theta) * radius, sin(theta) * radius);
-}
-ofVec2f cartesianToPolar(float x, float y) {
-	float theta = fmodf(atan2f(y, x) + TWO_PI, TWO_PI);
-	return ofVec2f(theta, sqrtf((x * x) + (y * y)));
-}
-void getGridCoordinates(float x, float y, int& i, int& j) {
-	ofVec2f cur = cartesianToPolar(x, y);
-	i = ofMap(cur.x, 0, TWO_PI, 0, thetaDivisions, true);
-	j = ofMap(cur.y, startRadius, endRadius, 0, radialDivisions, true);
-	j = MIN(j, radialDivisions - 1);
-}
+
 class RadialGrid {
 public:
+	int thetaDivisions, radialDivisions;
 	ofMesh mesh;
 	vector< vector<ofMesh> > quads;
-	void setup() {
+	void setup(int radialDivisions, int thetaDivisions) {
+		this->radialDivisions = radialDivisions;
+		this->thetaDivisions = thetaDivisions;
 		mesh.setMode(OF_PRIMITIVE_LINES);
-		quads.resize(thetaDivisions, vector<ofMesh>(radialDivisions));
-		for(int i = 0; i < thetaDivisions; i++) {
-			for(int j = 0; j < radialDivisions; j++) {
-				float left = ofMap(i, 0, thetaDivisions, 0, TWO_PI);
-				float right = ofMap(i + 1, 0, thetaDivisions, 0, TWO_PI);
-				float top = ofMap(j, 0, radialDivisions, startRadius, endRadius);
-				float bottom = ofMap(j + 1, 0, radialDivisions, startRadius, endRadius);
-				ofVec2f nw = polarToCartesian(left, top);
-				ofVec2f ne = polarToCartesian(right, top);
-				ofVec2f sw = polarToCartesian(left, bottom);
-				ofVec2f se = polarToCartesian(right, bottom);
+		quads.resize(radialDivisions, vector<ofMesh>(thetaDivisions));
+		for(int i = 0; i < radialDivisions; i++) {
+			for(int j = 0; j < thetaDivisions; j++) {
+				float top = ofMap(i, 0, radialDivisions, startRadius, endRadius);
+				float bottom = ofMap(i + 1, 0, radialDivisions, startRadius, endRadius);
+				float left = ofMap(j, 0, thetaDivisions, 0, TWO_PI);
+				float right = ofMap(j + 1, 0, thetaDivisions, 0, TWO_PI);
+				ofVec2f nw = polarToCartesian(top, left);
+				ofVec2f ne = polarToCartesian(top, right);
+				ofVec2f sw = polarToCartesian(bottom, left);
+				ofVec2f se = polarToCartesian(bottom, right);
 				mesh.addVertex(nw);
 				mesh.addVertex(ne);
 				mesh.addVertex(nw);
 				mesh.addVertex(sw);
-				if(j + 1 == radialDivisions) {
+				if(i + 1 == radialDivisions) {
 					mesh.addVertex(sw);
 					mesh.addVertex(se);
 				}
@@ -53,5 +43,19 @@ public:
 	}
 	void draw(int i, int j) {
 		quads[i][j].draw();
+	}
+	ofVec2f polarToCartesian(float radius, float theta) {
+		return ofVec2f(cos(theta) * radius, sin(theta) * radius);
+	}
+	ofVec2f cartesianToPolar(float x, float y) {
+		float radius = sqrtf((x * x) + (y * y));
+		float theta = fmodf(atan2f(y, x) + TWO_PI, TWO_PI);
+		return ofVec2f(radius, theta);
+	}
+	void getGridCoordinates(float x, float y, int& i, int& j) {
+		ofVec2f cur = cartesianToPolar(x, y);
+		i = ofMap(cur.x, startRadius, endRadius, 0, radialDivisions, true);
+		i = MIN(j, radialDivisions - 1);
+		j = ofMap(cur.y, 0, TWO_PI, 0, thetaDivisions, true);
 	}
 };

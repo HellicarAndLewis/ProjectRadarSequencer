@@ -13,7 +13,9 @@ public:
 		ofSetColor(ofColor::white);
 		grid.draw();
 		int i, j;
-		getGridCoordinates(mouseX, mouseY, i, j);
+		float x = ofMap(mouseX, 0, ofGetWidth(), -1, 1);
+		float y = ofMap(mouseY, 0, ofGetHeight(), -1, 1);
+		getGridCoordinates(x, y, i, j);
 		ofSetColor(ofColor::red);
 		grid.draw(i, j);
 	}

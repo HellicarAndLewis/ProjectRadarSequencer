@@ -25,6 +25,8 @@ public:
 	ofFbo fbo;
 	ofPixels fboPixels;
 	
+	vector<ofVec2f> people;
+	
 	void setup() {
 		sickA = &sickPlayerA;
 		sickB = &sickPlayerB;
@@ -35,7 +37,7 @@ public:
 		xml.setTo("sequencer");
 		string notes = xml.getValue("notes");
 		int bpm = xml.getValue<int>("bpm");
-		int columns = xml.getValue<int>("bpm");
+		int columns = xml.getValue<int>("columns");
 		int channel = xml.getValue<int>("channel");
 		vector<unsigned char> noteList;
 		vector<string> noteSplit = ofSplitString(notes, ",", true, true);
@@ -45,7 +47,7 @@ public:
 		sequencer.setup(noteList, columns, bpm, channel);
 		
 		ring.setup();
-		grid.setup();
+		grid.setup(noteList.size(), columns);
 	}
 	void setupGui() {
 		gui = new ofxUICanvas();
@@ -70,30 +72,60 @@ public:
 		fbo.readToPixels(fboPixels);
 		ring.update(fboPixels);		
 	}
+	ofVec2f mapToGrid(ofVec2f point) {
+		return ofVec2f((point.x - (ofGetWidth() / 2)) / 256., (point.y - (ofGetHeight() / 2)) / 256.);
+	}
 	void draw() {
+		ofPushStyle();
 		ofPushMatrix();
 		
 		ofBackground(0);
+		int gridRow, gridCol;
+		vector<vector<bool> > states;
+		sequencer.clearStates();
+		for(int i = 0; i < people.size(); i++) {
+			ofCircle(people[i], 10);
+			ofVec2f position = mapToGrid(people[i]);
+			grid.getGridCoordinates(position.x, position.y, gridRow, gridCol);
+			sequencer.setState(gridRow, gridCol, true);
+		}
+		
 		ofTranslate(ofGetWidth() / 2, ofGetHeight() / 2);
 		
 		ofSetColor(ofColor::white);
 		ring.draw();
 		
+		ofPushMatrix();
 		ofScale(256, 256);
 		grid.draw();
-		
-		int i, j;
-		float x = (mouseX - (ofGetWidth() / 2)) / 256.;
-		float y = (mouseY - (ofGetHeight() / 2)) / 256.;
-		getGridCoordinates(x, y, i, j);
-		ofSetColor(ofColor::red);
-		grid.draw(i, j);
-		
 		ofPopMatrix();
+		
+		ofScale(40, 40);
+		ofSetColor(ofColor::red);
+		for(int row = 0; row < sequencer.getRows(); row++) {
+			for(int col = 0; col < sequencer.getCols(); col++) {
+				if(sequencer.getState(row, col)) {
+					grid.draw(row, col);
+					ofFill();
+				} else {
+					ofNoFill();
+				}
+				ofCircle(col, row, .5, .5);
+			}
+		}
+
+		ofPopMatrix();
+		ofPopStyle();
+	}
+	void mouseDragged(int x, int y, int b) {
+		people.push_back(ofVec2f(x, y));
+	}
+	void exit() {
+		sequencer.waitForThread();
 	}
 };
 
-int main( ){
+int main() {
 	ofSetupOpenGL(1280, 720, OF_WINDOW);
 	ofRunApp(new ofApp());
 }
