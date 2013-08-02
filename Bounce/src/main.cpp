@@ -65,16 +65,14 @@ public:
 		}
 	}
 };
-int getClockwise(vector<Person>& people, float angle) {
-	for(int i = 0; i < people.size(); i++) {
-		
-	}
-}
+int peopleRadius = 4;
 class ofApp : public ofBaseApp {
 public:
 	LedRing ledRing;
 	ofFbo fbo;
 	ofPixels fboPixels;
+	bool selected;
+	int selectedIndex;
 	vector<Person> people;
 	vector<Pulse> pulses;
 	void setup() {
@@ -123,7 +121,13 @@ public:
 		
 		for(int i = 0; i < people.size(); i++) {
 			ofSetColor(255);
-			ofCircle(people[i].position, 4);
+			ofFill();
+			ofCircle(people[i].position, peopleRadius);
+			if(selected && selectedIndex == i) {
+				ofSetColor(ofColor::red);
+				ofNoFill();
+				ofCircle(people[i].position, peopleRadius * 2);				
+			}
 			ofPushMatrix();
 			ofRotate(people[i].getAngle());
 			ofSetColor(255, 128);
@@ -139,16 +143,32 @@ public:
 		}
 	}
 	void mousePressed(int x, int y, int b) {
-		people.push_back(Person(x - ofGetWidth() / 2, y - ofGetHeight() / 2));
-		pulses.push_back(people.back().getAngle());
+		if(!selected) {
+			selected = true;
+			selectedIndex = people.size();
+			people.push_back(Person(x - ofGetWidth() / 2, y - ofGetHeight() / 2));
+			pulses.push_back(people.back().getAngle());
+		}
 	}
 	void mouseDragged(int x, int y, int b) {
-		people.back().position.set(x - ofGetWidth() / 2, y - ofGetHeight() / 2);
+		people[selectedIndex].position.set(x - ofGetWidth() / 2, y - ofGetHeight() / 2);
 	}
 	void mouseMoved(int x, int y) {
-		float speed = ofMap(x, 0, ofGetWidth(), 1, 180);
-		for(int i = 0; i < pulses.size(); i++) {
-			//pulses[i].setSpeed(speed);
+		ofVec2f mouse(x - ofGetWidth() / 2, y - ofGetHeight() / 2);
+		float nearest;
+		int nearestIndex;
+		for(int i = 0; i < people.size(); i++) {
+			float distance = mouse.distance(people[i].position);
+			if(i == 0 || distance < nearest) {
+				nearest = distance;
+				nearestIndex = i;
+			}
+		}
+		if(people.size() && nearest < 2 * peopleRadius) {
+			selectedIndex = nearestIndex;
+			selected = true;
+		} else {
+			selected = false;
 		}
 	}
 };
