@@ -12,6 +12,9 @@ public:
 	float getAngle() {
 		return ofRadToDeg(atan2f(position.y, position.x));
 	}
+	float getRadius() {
+		return position.length();
+	}
 };
 class Pulse {
 protected:
@@ -113,16 +116,24 @@ public:
 		
 		ofPushStyle();
 		ofNoFill();
+		ofSetColor(255, 128);
 		ofCircle(0, 0, 1 * ofGetWidth() / 4);
 		ofCircle(0, 0, 2 * ofGetWidth() / 4);
 		ofPopStyle();
 		
 		for(int i = 0; i < people.size(); i++) {
+			ofSetColor(255);
 			ofCircle(people[i].position, 4);
+			ofPushMatrix();
+			ofRotate(people[i].getAngle());
+			ofSetColor(255, 128);
+			ofLine(1 * ofGetWidth() / 4, 0, people[i].getRadius(), 0);
+			ofPopMatrix();
 		}
 		for(int i = 0; i < pulses.size(); i++) {
 			ofPushMatrix();
 			ofRotate(pulses[i].getAngle());
+			ofSetColor(ofColor::red);
 			ofLine(1 * ofGetWidth() / 4, 0, 2 * ofGetWidth() / 4, 0);
 			ofPopMatrix();
 		}
