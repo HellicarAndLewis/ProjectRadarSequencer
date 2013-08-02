@@ -1,8 +1,73 @@
 #include "ofMain.h"
 #include "LedRing.h"
+#include "ofxMidi.h"
+ofxMidiOut midi;
 ofVec2f makeRotatedVector(float angle) {
 	return ofVec2f(1, 0).rotate(angle);
 }
+class MidiNote {
+protected:
+	float startTime;
+	int noteLength;
+public:
+	int channel, pitch;
+	MidiNote(int channel, int pitch, int noteLength)
+	:channel(channel)
+	,pitch(pitch)
+	,noteLength(noteLength)
+	,startTime(ofGetElapsedTimeMillis()) {
+	}
+	bool finished() {
+		return (ofGetElapsedTimeMillis() - startTime) > noteLength;
+	}
+};
+bool isFinished(MidiNote& note) {
+	return note.finished();
+}
+class MidiWrapper : public ofThread {
+public:
+	MidiWrapper() {
+		startThread();
+	}
+	void sendNote(int channel, int pitch, int velocity, int noteLength) {
+		if(isThreadRunning()) {
+			midi.sendNoteOn(channel, pitch, velocity);
+			MidiNote note(channel, pitch, noteLength);
+			lock();
+			frontNotes.push_back(note);
+			unlock();
+		}
+	}
+protected:
+	vector<MidiNote> backNotes, frontNotes;
+	void swap() {
+		if(frontNotes.size()) {
+			backNotes.insert(backNotes.end(), frontNotes.begin(), frontNotes.end());
+			frontNotes.clear();
+		}		
+	}
+	void threadedFunction() {
+		while(isThreadRunning()) {
+			for(int i = 0; i < backNotes.size(); i++) {
+				MidiNote& cur = backNotes[i];
+				if(cur.finished()) {
+					midi.sendNoteOff(cur.channel, cur.pitch, 0);
+				}
+			}
+			ofRemove(backNotes, isFinished);
+			lock();
+			swap();
+			unlock();
+			ofSleepMillis(1);
+		}
+		// silence remaining notes
+		swap();
+		for(int i = 0; i < backNotes.size(); i++) {
+			MidiNote& cur = backNotes[i];
+			midi.sendNoteOff(cur.channel, cur.pitch, 0);
+		}
+	}
+};
 class Person {
 public:
 	ofVec2f position;
@@ -21,14 +86,18 @@ protected:
 	float lastDiff, lastAngle;
 	float speed, startAngle, startTime;
 	bool clockwise;
+	int index;
 	void bounce() {
+		midiWrapper->sendNote(1, 64 + index, 64, 200);
 		startAngle = lastAngle;
 		startTime = ofGetElapsedTimef();
 		clockwise = !clockwise;
 	}
 public:
-	Pulse(float startAngle)
+	static MidiWrapper* midiWrapper;
+	Pulse(float startAngle, int index)
 	:startAngle(startAngle)
+	,index(index)
 	,lastDiff(0)
 	,lastAngle(0)
 	,speed(60)
@@ -65,6 +134,7 @@ public:
 		}
 	}
 };
+MidiWrapper* Pulse::midiWrapper;
 int peopleRadius = 4;
 class ofApp : public ofBaseApp {
 public:
@@ -75,6 +145,7 @@ public:
 	int selectedIndex;
 	vector<Person> people;
 	vector<Pulse> pulses;
+	MidiWrapper midiWrapper;
 	void setup() {
 		ledRing.setup();
 		fbo.allocate(512, 512);
@@ -83,6 +154,9 @@ public:
 		fbo.end();
 		ofSetCircleResolution(64);
 		ofSetLineWidth(2);
+		ofLog() << "MIDI Ports: " << ofToString(midi.getPortList());
+		midi.openPort();
+		Pulse::midiWrapper = &midiWrapper;
 	}
 	void update() {
 		for(int i = 0; i < pulses.size(); i++) {
@@ -92,6 +166,7 @@ public:
 		ofPushStyle();
 		ofSetLineWidth(30);
 		ofSetColor(0, 10);
+		ofFill();
 		ofRect(0, 0, fbo.getWidth(), fbo.getHeight());
 		ofSetColor(255);
 		ofTranslate(ofGetWidth() / 2, ofGetHeight() / 2);
@@ -147,7 +222,7 @@ public:
 			selected = true;
 			selectedIndex = people.size();
 			people.push_back(Person(x - ofGetWidth() / 2, y - ofGetHeight() / 2));
-			pulses.push_back(people.back().getAngle());
+			pulses.push_back(Pulse(people.back().getAngle(), selectedIndex));
 		}
 	}
 	void mouseDragged(int x, int y, int b) {
@@ -169,6 +244,13 @@ public:
 			selected = true;
 		} else {
 			selected = false;
+		}
+	}
+	void keyPressed(int key) {
+		if(key == OF_KEY_BACKSPACE) {
+			if(selected) {
+				people.erase(people.begin() + selectedIndex);
+			}
 		}
 	}
 };
