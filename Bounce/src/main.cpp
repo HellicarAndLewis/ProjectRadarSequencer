@@ -70,15 +70,24 @@ protected:
 };
 class Person {
 public:
+	int index;
 	ofVec2f position;
-	Person(float x, float y) {
-		position.set(x, y);
+	Person(float x, float y, int index)
+	:index(index) {
+		setPosition(x, y);
 	}
 	float getAngle() {
 		return ofRadToDeg(atan2f(position.y, position.x));
 	}
 	float getRadius() {
 		return position.length();
+	}
+	int getPresence() {
+		return ofMap(getRadius(), 1 * ofGetWidth() / 4, 2 * ofGetWidth() / 4, 127, 0, true);		
+	}
+	void setPosition(float x, float y) {
+		position.set(x, y);
+		midi.sendControlChange(1, 64 + index, getPresence());
 	}
 };
 class Pulse {
@@ -87,6 +96,7 @@ protected:
 	float speed, startAngle, startTime;
 	bool clockwise;
 	int index;
+	float hue;
 	void bounce() {
 		midiWrapper->sendNote(1, 64 + index, 64, 200);
 		startAngle = lastAngle;
@@ -97,12 +107,16 @@ public:
 	static MidiWrapper* midiWrapper;
 	Pulse(float startAngle, int index)
 	:startAngle(startAngle)
+	,hue(startAngle)
 	,index(index)
 	,lastDiff(0)
 	,lastAngle(0)
-	,speed(60)
+	,speed(90)
 	,clockwise(true)
 	,startTime(ofGetElapsedTimef()) {
+	}
+	float getHue() {
+		return ofMap(hue, -180, 180, 0, 255);
 	}
 	float getAngle() {
 		float t = ofGetElapsedTimef() - startTime;
@@ -132,10 +146,13 @@ public:
 			lastDiff = bestDiff;
 			lastAngle = angle;
 		}
+		midi.sendControlChange(1, 1 + 2 * index + 0, ofMap(direction.x, 0, ofGetWidth(), 0, 127, true));
+		midi.sendControlChange(1, 1 + 2 * index + 1, ofMap(direction.y, 0, ofGetHeight(), 0, 127, true));
 	}
 };
 MidiWrapper* Pulse::midiWrapper;
 int peopleRadius = 4;
+bool showDebug = false;
 class ofApp : public ofBaseApp {
 public:
 	LedRing ledRing;
@@ -147,6 +164,8 @@ public:
 	vector<Pulse> pulses;
 	MidiWrapper midiWrapper;
 	void setup() {
+		ofSetFrameRate(60);
+		ofSetVerticalSync(false);
 		ledRing.setup();
 		fbo.allocate(512, 512);
 		fbo.begin();
@@ -157,6 +176,7 @@ public:
 		ofLog() << "MIDI Ports: " << ofToString(midi.getPortList());
 		midi.openPort();
 		Pulse::midiWrapper = &midiWrapper;
+		pulses.push_back(Pulse(0, 0));
 	}
 	void update() {
 		for(int i = 0; i < pulses.size(); i++) {
@@ -170,9 +190,11 @@ public:
 		ofRect(0, 0, fbo.getWidth(), fbo.getHeight());
 		ofSetColor(255);
 		ofTranslate(ofGetWidth() / 2, ofGetHeight() / 2);
+		float saturation = ofMap(pulses.size(), 1, 10, 0, 255, true);
 		for(int i = 0; i < pulses.size(); i++) {
 			ofPushMatrix();
 			ofRotate(pulses[i].getAngle());
+			ofSetColor(ofColor::fromHsb(pulses[i].getHue(), saturation, 255));
 			ofLine(0, 0, ofGetWidth() / 2, 0);
 			ofPopMatrix();
 		}
@@ -180,20 +202,41 @@ public:
 		fbo.end();
 		fbo.readToPixels(fboPixels);
 		ledRing.update(fboPixels);
+		float presence = 0;
+		for(int i = 0; i < people.size(); i++) {
+			presence += people[i].getPresence();
+		}
+		presence /= people.size();
+		midi.sendControlChange(2, 1, presence);
 	}
 	void draw() {
+		
 		ofBackground(0);
+		ofSetColor(255);
+		ofDrawBitmapString(ofToString((int) ofGetFrameRate()), 10, 20);
+		
 		//fbo.draw(0, 0);
 		ofTranslate(ofGetWidth() / 2, ofGetHeight() / 2);
 		ledRing.draw();
 		
-		ofPushStyle();
-		ofNoFill();
-		ofSetColor(255, 128);
-		ofCircle(0, 0, 1 * ofGetWidth() / 4);
-		ofCircle(0, 0, 2 * ofGetWidth() / 4);
-		ofPopStyle();
+		if(showDebug) {
+			ofPushStyle();
+			ofNoFill();
+			ofSetColor(255, 128);
+			ofCircle(0, 0, 1 * ofGetWidth() / 4);
+			ofCircle(0, 0, 2 * ofGetWidth() / 4);
+			ofPopStyle();
+			
+			for(int i = 0; i < pulses.size(); i++) {
+				ofPushMatrix();
+				ofRotate(pulses[i].getAngle());
+				ofSetColor(ofColor::red);
+				ofLine(1 * ofGetWidth() / 4, 0, 2 * ofGetWidth() / 4, 0);
+				ofPopMatrix();
+			}
+		}
 		
+		ofPushStyle();
 		for(int i = 0; i < people.size(); i++) {
 			ofSetColor(255);
 			ofFill();
@@ -203,30 +246,28 @@ public:
 				ofNoFill();
 				ofCircle(people[i].position, peopleRadius * 2);				
 			}
-			ofPushMatrix();
-			ofRotate(people[i].getAngle());
-			ofSetColor(255, 128);
-			ofLine(1 * ofGetWidth() / 4, 0, people[i].getRadius(), 0);
-			ofPopMatrix();
+			if(showDebug) {
+				ofPushMatrix();
+				ofRotate(people[i].getAngle());
+				ofSetColor(255, 128);
+				ofLine(1 * ofGetWidth() / 4, 0, people[i].getRadius(), 0);
+				ofPopMatrix();
+			}
 		}
-		for(int i = 0; i < pulses.size(); i++) {
-			ofPushMatrix();
-			ofRotate(pulses[i].getAngle());
-			ofSetColor(ofColor::red);
-			ofLine(1 * ofGetWidth() / 4, 0, 2 * ofGetWidth() / 4, 0);
-			ofPopMatrix();
-		}
+		ofPopStyle();
 	}
 	void mousePressed(int x, int y, int b) {
 		if(!selected) {
 			selected = true;
 			selectedIndex = people.size();
-			people.push_back(Person(x - ofGetWidth() / 2, y - ofGetHeight() / 2));
-			pulses.push_back(Pulse(people.back().getAngle(), selectedIndex));
+			people.push_back(Person(x - ofGetWidth() / 2, y - ofGetHeight() / 2, people.size()));
+			if(people.size() > 1) {
+				pulses.push_back(Pulse(people.back().getAngle(), selectedIndex));
+			}
 		}
 	}
 	void mouseDragged(int x, int y, int b) {
-		people[selectedIndex].position.set(x - ofGetWidth() / 2, y - ofGetHeight() / 2);
+		people[selectedIndex].setPosition(x - ofGetWidth() / 2, y - ofGetHeight() / 2);
 	}
 	void mouseMoved(int x, int y) {
 		ofVec2f mouse(x - ofGetWidth() / 2, y - ofGetHeight() / 2);
@@ -250,7 +291,14 @@ public:
 		if(key == OF_KEY_BACKSPACE) {
 			if(selected) {
 				people.erase(people.begin() + selectedIndex);
+				if(pulses.size() > 1) {
+					pulses.erase(pulses.end() - 1);
+				}
+				selected = false;
 			}
+		}
+		if(key == '\t') {
+			showDebug = !showDebug;
 		}
 	}
 };
