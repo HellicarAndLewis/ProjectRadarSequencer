@@ -23,7 +23,7 @@ ofImage Led::glow;
 float Led::scale = .3;
 class LedRing : public vector<Led> {
 public:
-	void setup(int n = 64, float radius = 128) {
+	void setup(int n = 128, float radius = 128) {
 		Led::setup();
 		for(int i = 0; i < n; i++) {
 			Led led;
