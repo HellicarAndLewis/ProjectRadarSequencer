@@ -43,7 +43,7 @@ public:
 			position.set(e);
 		}
 	}
-	void draw(ofEventArgs& e) {
+	virtual void draw(ofEventArgs& e) {
 		ofPushStyle();
 		ofFill();
 		ofSetColor(255);
@@ -62,9 +62,32 @@ int DraggableCircle::idCount = 0;
 
 class Person : public DraggableCircle {
 public:
+	float leftAngle, rightAngle;
+	float startAngle, startTime;
+	float pulseAngle;
+	bool direction;
+	Person()
+	:leftAngle(0)
+	,rightAngle(0)
+	,startAngle(0)
+	,startTime(0),
+	direction(false) {
+	}
 	virtual void setup(ofVec2f position) {
 		DraggableCircle::setup();
 		this->position = position;
+		ofAddListener(ofEvents().update, this, &Person::update);
+	}
+	void update(ofEventArgs& update) {
+		float a = leftAngle, b = rightAngle;
+		if(b < a) {
+			b += 360;
+		}
+		pulseAngle = MAX(pulseAngle, leftAngle);
+		pulseAngle = MIN(pulseAngle, rightAngle);
+	}
+	float getPulseAngle() {
+		return pulseAngle;
 	}
 	ofVec2f getWorldPosition() const {
 		return position - ofGetWindowSize() / 2;
@@ -117,14 +140,22 @@ public:
 		ofTranslate(ofGetWidth() / 2, ofGetHeight() / 2);
 		int n = people.size();
 		for(int i = 0; i < n; i++) {
+			int inext = (i + 1) % n;
 			float a = people[i].getAngle();
-			float b = people[(i + 1) % n].getAngle();
-			while(b < a) {
+			float b = people[inext].getAngle();
+			if(b < a) {
 				b += 360;
 			}
 			float avg = (a + b) / 2;
 			avg = fmodf(avg, 360);
-			ofLine(ofVec2f(120, 0).rotate(-avg), ofVec2f(300, 0).rotate(-avg)); 
+			people[i].rightAngle = avg;
+			people[inext].leftAngle = avg;
+			ofLine(ofVec2f(100, 0).rotate(-avg), ofVec2f(300, 0).rotate(-avg));
+		}
+		ofSetColor(ofColor::magenta);
+		for(int i = 0; i < n; i++) {
+			float theta = people[i].getPulseAngle();
+			ofLine(ofVec2f(150, 0).rotate(-theta), ofVec2f(250, 0).rotate(-theta));
 		}
 		ofPopStyle();
 		ofPopMatrix();
