@@ -221,6 +221,13 @@
 		278E57D117A5B7B00008AA9F /* RadialGrid.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RadialGrid.h; sourceTree = "<group>"; };
 		278E57D217A5B7B00008AA9F /* Sequencer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Sequencer.h; sourceTree = "<group>"; };
 		278E57D317A5B9070008AA9F /* CoreMIDI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreMIDI.framework; path = ../../../../../../../System/Library/Frameworks/CoreMIDI.framework; sourceTree = "<group>"; };
+		27F5173B17B78AFC0052994E /* license.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = license.md; sourceTree = "<group>"; };
+		27F5173C17B78AFC0052994E /* readme.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = readme.md; sourceTree = "<group>"; };
+		27F5173E17B78AFC0052994E /* DelayTimer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = DelayTimer.h; sourceTree = "<group>"; };
+		27F5173F17B78AFC0052994E /* FadeTimer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = FadeTimer.h; sourceTree = "<group>"; };
+		27F5174017B78AFC0052994E /* Hysteresis.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Hysteresis.h; sourceTree = "<group>"; };
+		27F5174117B78AFC0052994E /* ofxTiming.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ofxTiming.h; sourceTree = "<group>"; };
+		27F5174217B78AFC0052994E /* RateTimer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RateTimer.h; sourceTree = "<group>"; };
 		2e411f99e3ab7154484b4f96165f5cff /* kmeans_index.h */ = {isa = PBXFileReference; explicitFileType = sourcecode.c.h; fileEncoding = 30; name = kmeans_index.h; path = ../../../addons/ofxOpenCv/libs/opencv/include/opencv2/flann/kmeans_index.h; sourceTree = SOURCE_ROOT; };
 		30884ecd9c171ab1b1bdfc3f6449c692 /* cv.hpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.c.h; fileEncoding = 30; name = cv.hpp; path = ../../../addons/ofxOpenCv/libs/opencv/include/opencv/cv.hpp; sourceTree = SOURCE_ROOT; };
 		319268d200f1ba567e4ccff97a1babd8 /* cxeigen.hpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.c.h; fileEncoding = 30; name = cxeigen.hpp; path = ../../../addons/ofxOpenCv/libs/opencv/include/opencv/cxeigen.hpp; sourceTree = SOURCE_ROOT; };
@@ -737,6 +744,29 @@
 			path = ../SharedCode;
 			sourceTree = "<group>";
 		};
+		27F5173A17B78AFC0052994E /* ofxTiming */ = {
+			isa = PBXGroup;
+			children = (
+				27F5173B17B78AFC0052994E /* license.md */,
+				27F5173C17B78AFC0052994E /* readme.md */,
+				27F5173D17B78AFC0052994E /* src */,
+			);
+			name = ofxTiming;
+			path = ../../../addons/ofxTiming;
+			sourceTree = "<group>";
+		};
+		27F5173D17B78AFC0052994E /* src */ = {
+			isa = PBXGroup;
+			children = (
+				27F5173E17B78AFC0052994E /* DelayTimer.h */,
+				27F5173F17B78AFC0052994E /* FadeTimer.h */,
+				27F5174017B78AFC0052994E /* Hysteresis.h */,
+				27F5174117B78AFC0052994E /* ofxTiming.h */,
+				27F5174217B78AFC0052994E /* RateTimer.h */,
+			);
+			path = src;
+			sourceTree = "<group>";
+		};
 		37cf39b443acb0f86b1351ed5c62e3f4 /* src */ = {
 			isa = PBXGroup;
 			children = (
@@ -894,6 +924,7 @@
 		BB4B014C10F69532006C3DED /* addons */ = {
 			isa = PBXGroup;
 			children = (
+				27F5173A17B78AFC0052994E /* ofxTiming */,
 				272B86F2179F4C8B00084EB4 /* ofxXmlSettings */,
 				272B86C4179F4C6500084EB4 /* ofxUI */,
 				272B8687179F4C3800084EB4 /* ofxMidi */,

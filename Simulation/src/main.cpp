@@ -1,6 +1,7 @@
 #include "ofMain.h"
 #include "MiniFont.h"
 #include "ofxMidi.h"
+#include "ofxTiming.h"
 
 const float pxToMm = 1. / 10.;
 float carWidth = 2600, tireWidth = 550, tireHeight = 180, tireSpacing = 845;
@@ -10,6 +11,42 @@ float innerEllipseWidth = 3840, innerEllipseHeight = 2720;
 float peopleRadius = 300 * pxToMm;
 float offsetAmount = 600;
 float debounceTime = .05;
+
+ofVec2f spka(-1, +1), spkb(-1, -1), spkc(+1, +1), spkd(+1, -1);
+float spkRadius = 3000, spkSize = 100;
+bool isInside(float x, float left, float right) {
+	return left < x && x < right;
+}
+
+float distanceWrap(float a, float b, float range) {
+	a = ofWrap(a, 0, range);
+	b = ofWrap(b, 0, range);
+	if(a > b) {
+		swap(a, b);
+	}
+	float d1 = b - a, d2 = a + (range - b);
+	return MIN(d1, d2);
+}
+
+int isInsideWrap(float x, float left, float right, float range) {
+	x = ofWrap(x, 0, range);
+	left = ofWrap(left, 0, range);
+	right = ofWrap(right, 0, range);
+	bool nearLeft = distanceWrap(x, left, range) < distanceWrap(x, right, range);
+	bool inside = left < right ?
+	(isInside(x, left, right)) :
+	(isInside(x, left, range) || isInside(x, 0, right));
+	return inside ? 0 : (nearLeft ? -1 : +1);
+}
+
+void spatialize(ofVec2f normal, float& da, float& db, float& dc, float& dd) {
+	da = 180. - fabsf(spka.angle(normal));
+	db = 180. - fabsf(spkb.angle(normal));
+	dc = 180. - fabsf(spkc.angle(normal));
+	dd = 180. - fabsf(spkd.angle(normal));
+	float sum = 127 / (da + db + dc + dd);
+	da *= sum, db *= sum, dc *= sum, dd *= sum;
+}
 
 class Midi : public ofxMidiOut {
 public:
@@ -32,6 +69,7 @@ protected:
 	static int idCount;
 	int id;
 	float radius;
+	ofVec2f offset;
 public:
 	DraggableCircle()
 	:selected(false)
@@ -51,6 +89,7 @@ public:
 		return position;
 	}
 	void mousePressed(ofMouseEventArgs& e) {
+		offset = position - e;
 		mouseMoved(e);
 	}
 	void mouseMoved(ofMouseEventArgs& e) {
@@ -58,21 +97,26 @@ public:
 	}
 	void mouseDragged(ofMouseEventArgs& e) {
 		if(selected) {
-			position.set(e);
+			position.set(e + offset);
 		}
 	}
+	virtual void draw() {
+	}
 	virtual void draw(ofEventArgs& e) {
+		ofPushMatrix();
+		ofTranslate((int) position.x, (int) position.y);
 		ofPushStyle();
 		ofFill();
 		ofSetColor(255, 128);
-		ofCircle(position, radius);
+		ofCircle(0, 0, radius);
 		if(selected) {
 			ofSetColor(ofColor::red);
 			ofNoFill();
-			ofCircle(position, radius + 4);				
+			ofCircle(0, 0, radius + 4);				
 		}
-		MiniFont::drawHighlight(ofToString(id), position);
+		draw();
 		ofPopStyle();
+		ofPopMatrix();
 	}
 };
 
@@ -92,6 +136,7 @@ public:
 class Person : public DraggableCircle, public HasAngle {
 public:
 	float leftAngle, rightAngle;
+	DelayTimer timer;
 	Person()
 	:leftAngle(0)
 	,rightAngle(0) {
@@ -100,39 +145,37 @@ public:
 		DraggableCircle::setup();
 		this->position = position;
 		radius = peopleRadius;
+		timer.setPeriod(1);
+		timer.setUseBuffer(false);
+		ofAddListener(ofEvents().update, this, &Person::update);
 	}
 	ofVec2f getWorldPosition() const {
 		return position - ofGetWindowSize() / 2;
 	}
+	float getPresence() const {
+		return getWorldPosition().length();
+	}
 	virtual float getAngle() const {
 		return ofVec2f(1, 0).angle(getWorldPosition());
 	}
-};
-
-bool isInside(float x, float left, float right) {
-	return left < x && x < right;
-}
-
-float distanceWrap(float a, float b, float range) {
-	a = ofWrap(a, 0, range);
-	b = ofWrap(b, 0, range);
-	if(a > b) {
-		swap(a, b);
+	void update(ofEventArgs& e) {
+		if(timer.tick()) {
+			ofVec2f normal = getNormal();
+			float da, db, dc, dd;
+			spatialize(normal, da, db, dc, dd);
+			int channel = 1 + id;
+			midi.sendControlChange(channel, 0, da);
+			midi.sendControlChange(channel, 1, db);
+			midi.sendControlChange(channel, 2, dc);
+			midi.sendControlChange(channel, 3, dd);
+			midi.sendNote(channel, 64, 127, 500);
+		}
 	}
-	float d1 = b - a, d2 = a + (range - b);
-	return MIN(d1, d2);
-}
-
-int isInsideWrap(float x, float left, float right, float range) {
-	x = ofWrap(x, 0, range);
-	left = ofWrap(left, 0, range);
-	right = ofWrap(right, 0, range);
-	bool nearLeft = distanceWrap(x, left, range) < distanceWrap(x, right, range);
-	bool inside = left < right ?
-		(isInside(x, left, right)) :
-		(isInside(x, left, range) || isInside(x, 0, right));
-	return inside ? 0 : (nearLeft ? -1 : +1);
-}
+	virtual void draw() {
+		MiniFont::drawHighlight("Person " + ofToString(id), 0, 0);
+		MiniFont::drawHighlight(ofToString((int) getPresence()) + "mm", 0, 10);
+	}
+};
 
 float speed = 150;
 class Pulse : public HasAngle {
@@ -182,7 +225,15 @@ public:
 		float curTime = ofGetElapsedTimef();
 		float timeSinceLastBounce = curTime - lastBounceTime;
 		if(timeSinceLastBounce > debounceTime) {
-			midi.sendNote(1, 64 + id * 4, 127, 150);
+			float da, db, dc, dd;
+			ofVec2f normal = getCurrentNormal();
+			spatialize(normal, da, db, dc, dd);
+			int channel = 9 + id;
+//			midi.sendControlChange(channel, 0, da);
+//			midi.sendControlChange(channel, 1, db);
+//			midi.sendControlChange(channel, 2, dc);
+//			midi.sendControlChange(channel, 3, dd);
+			midi.sendNote(channel, 64 + id * 4, 127, 500);
 			lastBounceTime = curTime;
 		}
 	}
@@ -201,6 +252,7 @@ public:
 	void setup() {
 		ofSetCircleResolution(64);
 		ofSetLineWidth(2);
+		ofSetLogLevel(OF_LOG_VERBOSE);
 		
 		MiniFont::setup();
 		
@@ -292,14 +344,12 @@ public:
 		for(int i = 0; i < n; i++) {
 			ofVec2f normal = pulses[i].getNormal();
 			ofLine(190 * normal, 240 * normal);
-			MiniFont::drawHighlight(ofToString(pulses[i].id) + " " + ofToString(pulses[i].leftAngle) + " " + ofToString(pulses[i].rightAngle), 240 * normal);
+			MiniFont::drawHighlight("Pulse " + ofToString(pulses[i].id), 240 * normal);
 			ofVec2f currentNormal = pulses[i].getCurrentNormal();
 			ofLine(150 * currentNormal, 190 * currentNormal);
 		}
 		ofPopStyle();
 		ofPopMatrix();
-		
-		MiniFont::drawHighlight(ofToString(mouseX) + " " + ofToString(mouseY), 10, 10);
 	}
 	void drawCar() {
 		ofVec2f flt(-carWidth / 2 - tireWidth / 2, +tireSpacing - tireHeight), brt(carWidth / 2 - tireWidth / 2, -tireSpacing);
@@ -349,10 +399,31 @@ public:
 		ofRect(-carWidth / 2, -tireSpacing + tireHeight / 2, tireWidth, tireHeight);
 		ofRect(+carWidth / 2, -tireSpacing + tireHeight / 2, tireWidth, tireHeight);
 		ofPopStyle();
+		
+		ofPushMatrix();
+		ofPushStyle();
+		ofNoFill();
+		ofSetColor(255, 128);
+		ofCircle(spkRadius * spka, spkSize);
+		ofCircle(spkRadius * spkb, spkSize);
+		ofCircle(spkRadius * spkc, spkSize);
+		ofCircle(spkRadius * spkd, spkSize);
+		ofSetColor(255);
+		ofDrawBitmapString("Speaker A", spkRadius * spka);
+		ofDrawBitmapString("Speaker B", spkRadius * spkb);
+		ofDrawBitmapString("Speaker C", spkRadius * spkc);
+		ofDrawBitmapString("Speaker D", spkRadius * spkd);
+		ofPopStyle();
+		ofPopMatrix();
+	}
+	void keyPressed(int key) {
+		if(key == 'f') {
+			ofToggleFullscreen();
+		}
 	}
 };
 
 int main( ){
-	ofSetupOpenGL(1280, 720, OF_WINDOW);
+	ofSetupOpenGL(1024, 1024, OF_FULLSCREEN);
 	ofRunApp(new ofApp());
 }

@@ -27,6 +27,10 @@ namespace MiniFont {
 		font.drawString(str, x, y);
 	}
 	
+	void draw(string str, const ofVec2f& position) {
+		draw(str, position.x, position.y);
+	}
+	
 	void drawHighlight(string str, const ofVec2f& position, ofColor bg, ofColor fg) {
 		drawHighlight(str, position.x, position.y, bg, fg);
 	}
