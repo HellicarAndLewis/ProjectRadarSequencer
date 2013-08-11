@@ -1,13 +1,29 @@
 #include "ofMain.h"
 #include "MiniFont.h"
+#include "ofxMidi.h"
 
-float pxToMm = 1. / 10.;
+const float pxToMm = 1. / 10.;
 float carWidth = 2600, tireWidth = 550, tireHeight = 180, tireSpacing = 845;
-float directionSize = 10000, triangleSide = 50000;
+float directionSize = 15000, triangleSide = 50000;
 float outerEllipseWidth = 4600, outerEllipseHeight = 3480;
 float innerEllipseWidth = 3840, innerEllipseHeight = 2720;
-float peopleRadius = 10;
+float peopleRadius = 300 * pxToMm;
 float offsetAmount = 600;
+float debounceTime = .05;
+
+class Midi : public ofxMidiOut {
+public:
+	void sendNote(int channel, int pitch, int velocity = 64, int length = 150) {
+		sendNoteOn(channel, pitch, velocity);
+		vector<unsigned char> bytes;
+		bytes.push_back(MIDI_NOTE_OFF+(channel-1));
+		bytes.push_back(pitch);
+		bytes.push_back(velocity);
+		sendMidiBytes(bytes, length);
+	}
+};
+
+Midi midi;
 
 class DraggableCircle {
 protected:
@@ -15,9 +31,11 @@ protected:
 	ofVec2f position;
 	static int idCount;
 	int id;
+	float radius;
 public:
 	DraggableCircle()
-	:selected(false) {
+	:selected(false)
+	,radius(8) {
 	}
 	virtual void setup() {
 		id = idCount++;
@@ -36,7 +54,7 @@ public:
 		mouseMoved(e);
 	}
 	void mouseMoved(ofMouseEventArgs& e) {
-		selected = position.distance(e) < peopleRadius;
+		selected = position.distance(e) < radius;
 	}
 	void mouseDragged(ofMouseEventArgs& e) {
 		if(selected) {
@@ -46,12 +64,12 @@ public:
 	virtual void draw(ofEventArgs& e) {
 		ofPushStyle();
 		ofFill();
-		ofSetColor(255);
-		ofCircle(position, peopleRadius);
+		ofSetColor(255, 128);
+		ofCircle(position, radius);
 		if(selected) {
 			ofSetColor(ofColor::red);
 			ofNoFill();
-			ofCircle(position, peopleRadius * 2);				
+			ofCircle(position, radius + 4);				
 		}
 		MiniFont::drawHighlight(ofToString(id), position);
 		ofPopStyle();
@@ -81,6 +99,7 @@ public:
 	virtual void setup(ofVec2f position) {
 		DraggableCircle::setup();
 		this->position = position;
+		radius = peopleRadius;
 	}
 	ofVec2f getWorldPosition() const {
 		return position - ofGetWindowSize() / 2;
@@ -115,7 +134,7 @@ int isInsideWrap(float x, float left, float right, float range) {
 	return inside ? 0 : (nearLeft ? -1 : +1);
 }
 
-float speed = 100;
+float speed = 150;
 class Pulse : public HasAngle {
 public:
 	static int idCount;
@@ -123,12 +142,15 @@ public:
 	float leftAngle, rightAngle, pulseCenter;
 	bool direction;
 	float startAngle, startTime;
+	float lastBounceTime;
+	float currentAngle;
 	
 	Pulse()
 	:leftAngle(0)
 	,rightAngle(0)
 	,startAngle(0)
 	,startTime(0)
+	,lastBounceTime(0)
 	,direction(false) {
 	}
 	void setup(float angle) {
@@ -138,7 +160,17 @@ public:
 		id = idCount++;
 	}
 	void update(ofEventArgs& update) {
-		//pulseCenter = ofConstrainWrap(pulseCenter, leftAngle, rightAngle, 360);
+		float curTime = ofGetElapsedTimef();
+		float dt = curTime - startTime;
+		currentAngle = startAngle + (direction ? +speed : -speed) * dt;
+		int insideStatus = isInsideWrap(currentAngle, leftAngle, rightAngle, 360);
+		if(insideStatus) {
+			currentAngle = insideStatus > 0 ? rightAngle : leftAngle;
+			direction = insideStatus > 0 ? false : true;
+			startAngle = currentAngle;
+			startTime = curTime;
+			bounce();
+		}
 	}
 	virtual float getAngle() const {
 		return pulseCenter;
@@ -146,23 +178,21 @@ public:
 	ofVec2f getCurrentNormal() {
 		return ofVec2f(1, 0).rotate(getCurrentAngle());
 	}
-	float getCurrentAngle() {
+	void bounce() {
 		float curTime = ofGetElapsedTimef();
-		float dt = curTime - startTime;
-		float currentAngle = startAngle + (direction ? +speed : -speed) * dt;
-		int insideStatus = isInsideWrap(currentAngle, leftAngle, rightAngle, 360);
-		if(insideStatus) {
-			currentAngle = insideStatus > 0 ? rightAngle : leftAngle;
-			direction = insideStatus > 0 ? false : true;
-			startAngle = currentAngle;
-			startTime = curTime;
+		float timeSinceLastBounce = curTime - lastBounceTime;
+		if(timeSinceLastBounce > debounceTime) {
+			midi.sendNote(1, 64 + id * 4, 127, 150);
+			lastBounceTime = curTime;
 		}
+	}
+	float getCurrentAngle() {
 		return currentAngle;
 	}
 };
 
 int Pulse::idCount = 0;
-
+	
 class ofApp : public ofBaseApp {
 public:
 	vector<Person> people;
@@ -174,8 +204,11 @@ public:
 		
 		MiniFont::setup();
 		
-		people.resize(3);
-		pulses.resize(3);
+		midi.listPorts();
+		midi.openPort();
+		
+		people.resize(2);
+		pulses.resize(2);
 		for(int i = 0; i < people.size(); i++) {
 			people[i].setup(ofVec2f(ofRandomWidth(), ofRandomHeight()));
 			pulses[i].setup(people[i].getAngle());
@@ -243,28 +276,25 @@ public:
 		
 		ofPushMatrix();
 		ofPushStyle();
-		ofSetColor(ofColor::cyan);
 		ofTranslate(ofGetWidth() / 2, ofGetHeight() / 2);
 		int n = people.size();
 		for(int i = 0; i < n; i++) {
-			ofVec2f normal(1, 0);
-			normal.rotate(people[i].leftAngle);
-			ofLine(150 * normal, 300 * normal);
-		}
-		
-		for(int i = 0; i < n; i++) {
-			ofVec2f curPulse = pulses[i].getNormal();
-			ofLine(curPulse * 90, ofVec2f(1, 0).rotate(pulses[i].leftAngle) * 90);
-			ofLine(curPulse * 100, ofVec2f(1, 0).rotate(pulses[i].rightAngle) * 100);
+			ofVec2f leftNormal(1, 0);
+			leftNormal.rotate(people[i].leftAngle);
+			ofSetColor(ofColor::cyan);
+			ofLine(190 * leftNormal, 300 * leftNormal);
+			ofVec2f normal = people[i].getNormal();
+			ofSetColor(ofColor::yellow);
+			ofLine(150 * normal, 190 * normal);
 		}
 		
 		ofSetColor(ofColor::magenta);
 		for(int i = 0; i < n; i++) {
 			ofVec2f normal = pulses[i].getNormal();
-			ofLine(150 * normal, 200 * normal);
-			MiniFont::drawHighlight(ofToString(pulses[i].id) + " " + ofToString(pulses[i].leftAngle) + " " + ofToString(pulses[i].rightAngle), 200 * normal);
+			ofLine(190 * normal, 240 * normal);
+			MiniFont::drawHighlight(ofToString(pulses[i].id) + " " + ofToString(pulses[i].leftAngle) + " " + ofToString(pulses[i].rightAngle), 240 * normal);
 			ofVec2f currentNormal = pulses[i].getCurrentNormal();
-			ofLine(100 * currentNormal, 150 * currentNormal);
+			ofLine(150 * currentNormal, 190 * currentNormal);
 		}
 		ofPopStyle();
 		ofPopMatrix();
@@ -313,7 +343,7 @@ public:
 		ofEllipse(0, 0, outerEllipseWidth, outerEllipseHeight); // outer
 		ofEllipse(0, 0, innerEllipseWidth, innerEllipseHeight); // inner
 		ofSetRectMode(OF_RECTMODE_CENTER);
-		ofRectRounded(0, 0, 4100, 1690, 300);
+		ofRectRounded(0, 0, 4150, 1690, 300);
 		ofRect(-carWidth / 2, +tireSpacing - tireHeight / 2, tireWidth, tireHeight);
 		ofRect(+carWidth / 2, +tireSpacing - tireHeight / 2, tireWidth, tireHeight);
 		ofRect(-carWidth / 2, -tireSpacing + tireHeight / 2, tireWidth, tireHeight);
