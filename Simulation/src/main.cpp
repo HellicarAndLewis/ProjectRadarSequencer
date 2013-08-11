@@ -90,32 +90,39 @@ public:
 	}
 };
 
-float ofWrapCenter(float x, float center, float range) {
-	while(x + range < center) {
-		x += range;
-	}
-	while(x - range > center) {
-		x -= range;
-	}
-	return x;
+bool isInside(float x, float left, float right) {
+	return left < x && x < right;
 }
 
-float ofConstrainWrap(float x, float low, float high, float range) {
-	//cout << "snapping " << x << " between " << low << " and " << high << endl;
-	low = ofWrapCenter(low, x, range);
-	high = ofWrapCenter(high, x, range);
-	x = MAX(x, low);
-	x = MIN(x, high);
-	//cout << "snapped " << x << " between " << low << " and " << high << endl;
-	return x;
+float distanceWrap(float a, float b, float range) {
+	a = ofWrap(a, 0, range);
+	b = ofWrap(b, 0, range);
+	if(a > b) {
+		swap(a, b);
+	}
+	float d1 = b - a, d2 = a + (range - b);
+	return MIN(d1, d2);
 }
 
+int isInsideWrap(float x, float left, float right, float range) {
+	x = ofWrap(x, 0, range);
+	left = ofWrap(left, 0, range);
+	right = ofWrap(right, 0, range);
+	bool nearLeft = distanceWrap(x, left, range) < distanceWrap(x, right, range);
+	bool inside = left < right ?
+		(isInside(x, left, right)) :
+		(isInside(x, left, range) || isInside(x, 0, right));
+	return inside ? 0 : (nearLeft ? -1 : +1);
+}
+
+float speed = 100;
 class Pulse : public HasAngle {
 public:
+	static int idCount;
+	int id;
+	float leftAngle, rightAngle, pulseCenter;
 	bool direction;
-	float leftAngle, rightAngle;
 	float startAngle, startTime;
-	float pulseAngle;
 	
 	Pulse()
 	:leftAngle(0)
@@ -125,16 +132,36 @@ public:
 	,direction(false) {
 	}
 	void setup(float angle) {
-		pulseAngle = angle;
+		pulseCenter = angle;
+		startAngle = angle;
 		ofAddListener(ofEvents().update, this, &Pulse::update);
+		id = idCount++;
 	}
 	void update(ofEventArgs& update) {
-		//pulseAngle = ofConstrainWrap(pulseAngle, leftAngle, rightAngle, 360);
+		//pulseCenter = ofConstrainWrap(pulseCenter, leftAngle, rightAngle, 360);
 	}
 	virtual float getAngle() const {
-		return pulseAngle;
+		return pulseCenter;
+	}
+	ofVec2f getCurrentNormal() {
+		return ofVec2f(1, 0).rotate(getCurrentAngle());
+	}
+	float getCurrentAngle() {
+		float curTime = ofGetElapsedTimef();
+		float dt = curTime - startTime;
+		float currentAngle = startAngle + (direction ? +speed : -speed) * dt;
+		int insideStatus = isInsideWrap(currentAngle, leftAngle, rightAngle, 360);
+		if(insideStatus) {
+			currentAngle = insideStatus > 0 ? rightAngle : leftAngle;
+			direction = insideStatus > 0 ? false : true;
+			startAngle = currentAngle;
+			startTime = curTime;
+		}
+		return currentAngle;
 	}
 };
+
+int Pulse::idCount = 0;
 
 class ofApp : public ofBaseApp {
 public:
@@ -184,20 +211,19 @@ public:
 				bestOffset = j;
 			}
 		}
-		int personOffset = 0;//bestOffset;
+		int personOffset = bestOffset;
 		
 		for(int i = 0; i < n; i++) {
 			int personIndex = (i + personOffset) % n;
 			pulses[i].leftAngle = people[personIndex].leftAngle;
 			pulses[i].rightAngle = people[personIndex].rightAngle;
-			
 			float a = pulses[i].leftAngle, b = pulses[i].rightAngle;
 			if(b < a) {
 				b += 360;
 			}
 			float avg = (a + b) / 2;
 			avg = fmodf(avg, 360);
-			pulses[i].pulseAngle = avg;
+			pulses[i].pulseCenter = avg;
 		}
 	}
 	void drawTriangle(ofVec2f center, ofVec2f p1, ofVec2f p2, float side) {
@@ -223,7 +249,7 @@ public:
 		for(int i = 0; i < n; i++) {
 			ofVec2f normal(1, 0);
 			normal.rotate(people[i].leftAngle);
-			ofLine(100 * normal, 300 * normal);
+			ofLine(150 * normal, 300 * normal);
 		}
 		
 		for(int i = 0; i < n; i++) {
@@ -235,7 +261,10 @@ public:
 		ofSetColor(ofColor::magenta);
 		for(int i = 0; i < n; i++) {
 			ofVec2f normal = pulses[i].getNormal();
-			ofLine(150 * normal, 250 * normal);
+			ofLine(150 * normal, 200 * normal);
+			MiniFont::drawHighlight(ofToString(pulses[i].id) + " " + ofToString(pulses[i].leftAngle) + " " + ofToString(pulses[i].rightAngle), 200 * normal);
+			ofVec2f currentNormal = pulses[i].getCurrentNormal();
+			ofLine(100 * currentNormal, 150 * currentNormal);
 		}
 		ofPopStyle();
 		ofPopMatrix();
