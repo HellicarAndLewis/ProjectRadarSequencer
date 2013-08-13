@@ -39,24 +39,18 @@ int isInsideWrap(float x, float left, float right, float range) {
 	return inside ? 0 : (nearLeft ? -1 : +1);
 }
 
-void spatialize(ofVec2f normal, float& da, float& db, float& dc, float& dd) {
-	da = 180. - fabsf(spka.angle(normal));
-	db = 180. - fabsf(spkb.angle(normal));
-	dc = 180. - fabsf(spkc.angle(normal));
-	dd = 180. - fabsf(spkd.angle(normal));
-	float sum = 127 / (da + db + dc + dd);
-	da *= sum, db *= sum, dc *= sum, dd *= sum;
-}
-
 class Midi : public ofxMidiOut {
 public:
 	void sendNote(int channel, int pitch, int velocity = 64, int length = 150) {
 		sendNoteOn(channel, pitch, velocity);
+		sendNoteOff(channel, pitch, 0);
+		/*
+		 // this wasn't causing too much bandwidth to be used
 		vector<unsigned char> bytes;
 		bytes.push_back(MIDI_NOTE_OFF+(channel-1));
 		bytes.push_back(pitch);
 		bytes.push_back(velocity);
-		sendMidiBytes(bytes, length);
+		sendMidiBytes(bytes, length);*/
 	}
 };
 
@@ -160,15 +154,11 @@ public:
 	}
 	void update(ofEventArgs& e) {
 		if(timer.tick()) {
-			ofVec2f normal = getNormal();
-			float da, db, dc, dd;
-			spatialize(normal, da, db, dc, dd);
 			int channel = 1 + id;
-			midi.sendControlChange(channel, 0, da);
-			midi.sendControlChange(channel, 1, db);
-			midi.sendControlChange(channel, 2, dc);
-			midi.sendControlChange(channel, 3, dd);
-			midi.sendNote(channel, 64, 127, 500);
+			ofVec2f normal = getNormal();
+			float pan = ofMap(normal.x, -1, 1, 0, 127);
+			midi.sendControlChange(channel, 0, pan);
+			midi.sendNote(channel, 64 + id * 6, 127, 1200);
 		}
 	}
 	virtual void draw() {
@@ -225,14 +215,10 @@ public:
 		float curTime = ofGetElapsedTimef();
 		float timeSinceLastBounce = curTime - lastBounceTime;
 		if(timeSinceLastBounce > debounceTime) {
-			float da, db, dc, dd;
-			ofVec2f normal = getCurrentNormal();
-			spatialize(normal, da, db, dc, dd);
 			int channel = 9 + id;
-//			midi.sendControlChange(channel, 0, da);
-//			midi.sendControlChange(channel, 1, db);
-//			midi.sendControlChange(channel, 2, dc);
-//			midi.sendControlChange(channel, 3, dd);
+			ofVec2f normal = getCurrentNormal();
+			float pan = ofMap(normal.x, -1, 1, 0, 127, true);
+			midi.sendControlChange(channel, 0, pan);
 			midi.sendNote(channel, 64 + id * 4, 127, 500);
 			lastBounceTime = curTime;
 		}
@@ -259,8 +245,8 @@ public:
 		midi.listPorts();
 		midi.openPort();
 		
-		people.resize(2);
-		pulses.resize(2);
+		people.resize(3);
+		pulses.resize(3);
 		for(int i = 0; i < people.size(); i++) {
 			people[i].setup(ofVec2f(ofRandomWidth(), ofRandomHeight()));
 			pulses[i].setup(people[i].getAngle());
