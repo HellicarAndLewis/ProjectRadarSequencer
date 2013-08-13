@@ -1,0 +1,10 @@
+<xml>
+  <dmx channels="128" device="serial-0">
+    <range start="1" stop="32"/>
+    <range start="64" stop="96"/>
+  </dmx>
+  <dmx channels="256" device="serial-1">
+    <range start="1" stop="64"/>
+    <range start="128" stop="160"/>
+  </dmx>
+</xml>
