@@ -44,13 +44,6 @@ public:
 	void sendNote(int channel, int pitch, int velocity = 64, int length = 150) {
 		sendNoteOn(channel, pitch, velocity);
 		sendNoteOff(channel, pitch, 0);
-		/*
-		 // this wasn't causing too much bandwidth to be used
-		vector<unsigned char> bytes;
-		bytes.push_back(MIDI_NOTE_OFF+(channel-1));
-		bytes.push_back(pitch);
-		bytes.push_back(velocity);
-		sendMidiBytes(bytes, length);*/
 	}
 };
 
@@ -177,6 +170,7 @@ public:
 	float startAngle, startTime;
 	float lastBounceTime;
 	float currentAngle;
+	int personIndex;
 	
 	Pulse()
 	:leftAngle(0)
@@ -227,6 +221,21 @@ public:
 		return currentAngle;
 	}
 };
+
+void drawArcGlow(float x, float y, float w, float h, float start, float stop, int steps = 4, int resolution = 32) {
+	ofStyle style = ofGetStyle();
+	ofPath path;
+	path.setFilled(false);
+	float theta  = ofDegToRad(start);
+	path.moveTo(cos(theta) * w, sin(theta) * h);
+	path.arc(ofVec2f(0, 0), w, h, start, stop, true);
+	path.setCircleResolution(style.circleResolution);
+	path.setColor(ofColor(style.color, 255 / steps));
+	for(int i = 0; i < steps; i++) {
+		path.setStrokeWidth(ofMap(i, 0, steps - 1, 2, style.lineWidth));
+		path.draw();
+	}
+}
 
 int Pulse::idCount = 0;
 	
@@ -286,6 +295,7 @@ public:
 		
 		for(int i = 0; i < n; i++) {
 			int personIndex = (i + personOffset) % n;
+			pulses[i].personIndex = personIndex;
 			pulses[i].leftAngle = people[personIndex].leftAngle;
 			pulses[i].rightAngle = people[personIndex].rightAngle;
 			float a = pulses[i].leftAngle, b = pulses[i].rightAngle;
@@ -333,6 +343,7 @@ public:
 			MiniFont::drawHighlight("Pulse " + ofToString(pulses[i].id), 240 * normal);
 			ofVec2f currentNormal = pulses[i].getCurrentNormal();
 			ofLine(150 * currentNormal, 190 * currentNormal);
+			ofLine(190 * currentNormal, people[pulses[i].personIndex].getNormal() * 190);
 		}
 		ofPopStyle();
 		ofPopMatrix();
@@ -378,6 +389,21 @@ public:
 		ofNoFill();
 		ofEllipse(0, 0, outerEllipseWidth, outerEllipseHeight); // outer
 		ofEllipse(0, 0, innerEllipseWidth, innerEllipseHeight); // inner
+		ofPushStyle();
+		for(int j = 0; j < 2; j++) {
+			int w, h;
+			if(j == 0) {
+				w = outerEllipseWidth / 2, h = outerEllipseHeight / 2;
+			} else {
+				w = innerEllipseWidth / 2, h = innerEllipseHeight / 2;
+			}
+			ofSetLineWidth(16);
+			for(int i = 0; i < 4; i++) {
+				ofSetColor(ofColor::fromHsb(i * 63, 255, 255));
+				drawArcGlow(0, 0, w, h, i * 90, i * 90 + 90);
+			}
+		}
+		ofPopStyle();
 		ofSetRectMode(OF_RECTMODE_CENTER);
 		ofRectRounded(0, 0, 4150, 1690, 300);
 		ofRect(-carWidth / 2, +tireSpacing - tireHeight / 2, tireWidth, tireHeight);
