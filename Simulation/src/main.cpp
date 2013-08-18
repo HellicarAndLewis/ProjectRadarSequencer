@@ -41,7 +41,7 @@ int isInsideWrap(float x, float left, float right, float range) {
 
 class Midi : public ofxMidiOut {
 public:
-	void sendNote(int channel, int pitch, int velocity = 64, int length = 150) {
+	void sendNote(int channel, int pitch, int velocity = 64) {
 		sendNoteOn(channel, pitch, velocity);
 		sendNoteOff(channel, pitch, 0);
 	}
@@ -151,7 +151,7 @@ public:
 			ofVec2f normal = getNormal();
 			float pan = ofMap(normal.x, -1, 1, 0, 127);
 			midi.sendControlChange(channel, 0, pan);
-			midi.sendNote(channel, 64 + id * 6, 127, 1200);
+			midi.sendNote(channel, 64 + id * 6, 127);
 		}
 	}
 	virtual void draw() {
@@ -160,8 +160,33 @@ public:
 	}
 };
 
+class Led {
+private:
+	float delay, state, lastTime;
+public:
+	float startAngle, stopAngle;
+	Led()
+	:startAngle(0)
+	,stopAngle(0)
+	,state(0)
+	,delay(1) { // expose this on the gui, or smaller value for more users
+	}
+	void ping(float state = 1) {
+		this->state = state;
+		lastTime = ofGetElapsedTimef();
+	}
+	float getState() {
+		float curState = state - ((ofGetElapsedTimef() - lastTime) / delay);
+		return MAX(0, curState);
+	}
+};
+
 float speed = 150;
 class Pulse : public HasAngle {
+private:
+	bool bounced, passed;
+	int lastPersonIndex;
+	list<float> lastPersonDistance;
 public:
 	static int idCount;
 	int id;
@@ -171,6 +196,7 @@ public:
 	float lastBounceTime;
 	float currentAngle;
 	int personIndex;
+	float personAngle;
 	
 	Pulse()
 	:leftAngle(0)
@@ -178,7 +204,12 @@ public:
 	,startAngle(0)
 	,startTime(0)
 	,lastBounceTime(0)
-	,direction(false) {
+	,bounced(false)
+	,passed(false)
+	,direction(false)
+	,personAngle(0)
+	,lastPersonIndex(-1)
+	,lastPersonDistance(0){
 	}
 	void setup(float angle) {
 		pulseCenter = angle;
@@ -198,12 +229,42 @@ public:
 			startTime = curTime;
 			bounce();
 		}
+
+		if(personIndex != lastPersonIndex) {
+			lastPersonDistance.clear();
+		}
+		float personDistance = distanceWrap(currentAngle, personAngle, 360);
+		lastPersonDistance.push_back(personDistance);
+		if(lastPersonDistance.size() > 3) {
+			lastPersonDistance.pop_front();
+			list<float>::iterator itr = lastPersonDistance.begin();
+			float a = *(itr++), b = *(itr++), c = *(itr++);
+			if(a > b && c > b) {
+				pass();
+			}
+		}
+		lastPersonIndex = personIndex;
 	}
 	virtual float getAngle() const {
 		return pulseCenter;
 	}
 	ofVec2f getCurrentNormal() {
 		return ofVec2f(1, 0).rotate(getCurrentAngle());
+	}
+	bool getPassed() {
+		bool lastPassed = passed;
+		passed = false;
+		return lastPassed;
+	}
+	bool getBounced() {
+		bool lastBounced = bounced;
+		bounced = false;
+		return lastBounced;
+	}
+	void pass() {
+		int channel = 9 + id;
+		midi.sendNote(channel, 64 + id * 4, 127);
+		passed = true;
 	}
 	void bounce() {
 		float curTime = ofGetElapsedTimef();
@@ -213,8 +274,9 @@ public:
 			ofVec2f normal = getCurrentNormal();
 			float pan = ofMap(normal.x, -1, 1, 0, 127, true);
 			midi.sendControlChange(channel, 0, pan);
-			midi.sendNote(channel, 64 + id * 4, 127, 500);
+			//midi.sendNote(channel, 64 + id * 4, 127);
 			lastBounceTime = curTime;
+			bounced = true;
 		}
 	}
 	float getCurrentAngle() {
@@ -238,12 +300,13 @@ void drawArcGlow(float x, float y, float w, float h, float start, float stop, in
 }
 
 int Pulse::idCount = 0;
-	
+
 class ofApp : public ofBaseApp {
-public:
+public:	
 	vector<Person> people;
 	vector<Pulse> pulses;
-	
+	vector<Led> leds;
+
 	void setup() {
 		ofSetCircleResolution(64);
 		ofSetLineWidth(2);
@@ -254,11 +317,18 @@ public:
 		midi.listPorts();
 		midi.openPort();
 		
-		people.resize(3);
-		pulses.resize(3);
+		people.resize(6);
+		pulses.resize(6);
 		for(int i = 0; i < people.size(); i++) {
 			people[i].setup(ofVec2f(ofRandomWidth(), ofRandomHeight()));
 			pulses[i].setup(people[i].getAngle());
+		}
+		
+		leds.resize(4);
+		float ledAngle = 360 / leds.size();
+		for(int i = 0; i < leds.size(); i++) {
+			leds[i].startAngle = i * ledAngle;
+			leds[i].stopAngle = (i + 1) * ledAngle;
 		}
 	}
 	void update() {
@@ -296,8 +366,10 @@ public:
 		for(int i = 0; i < n; i++) {
 			int personIndex = (i + personOffset) % n;
 			pulses[i].personIndex = personIndex;
-			pulses[i].leftAngle = people[personIndex].leftAngle;
-			pulses[i].rightAngle = people[personIndex].rightAngle;
+			Person& person = people[personIndex];
+			pulses[i].personAngle = person.getAngle();
+			pulses[i].leftAngle = person.leftAngle;
+			pulses[i].rightAngle = person.rightAngle;
 			float a = pulses[i].leftAngle, b = pulses[i].rightAngle;
 			if(b < a) {
 				b += 360;
@@ -305,6 +377,15 @@ public:
 			float avg = (a + b) / 2;
 			avg = fmodf(avg, 360);
 			pulses[i].pulseCenter = avg;
+			
+			if(pulses[i].getPassed()) {
+				for(int j = 0; j < leds.size(); j++) {
+					int inside = isInsideWrap(person.getAngle(), leds[j].startAngle, leds[j].stopAngle, 360);
+					if(inside == 0) {
+						leds[j].ping();
+					}
+				}
+			}
 		}
 	}
 	void drawTriangle(ofVec2f center, ofVec2f p1, ofVec2f p2, float side) {
@@ -318,7 +399,6 @@ public:
 		ofPushMatrix();
 		ofTranslate(ofGetWidth() / 2, ofGetHeight() / 2);
 		ofScale(pxToMm, pxToMm);
-		ofRotate(45);
 		drawCar();
 		ofPopMatrix();
 		
@@ -398,9 +478,9 @@ public:
 				w = innerEllipseWidth / 2, h = innerEllipseHeight / 2;
 			}
 			ofSetLineWidth(16);
-			for(int i = 0; i < 4; i++) {
-				ofSetColor(ofColor::fromHsb(i * 63, 255, 255));
-				drawArcGlow(0, 0, w, h, i * 90, i * 90 + 90);
+			for(int i = 0; i < leds.size(); i++) {
+				ofSetColor(ofColor(0, 0, 255 * leds[i].getState()));
+				drawArcGlow(0, 0, w, h, leds[i].startAngle, leds[i].stopAngle);
 			}
 		}
 		ofPopStyle();
