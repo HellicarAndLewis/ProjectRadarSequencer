@@ -3,6 +3,8 @@
 #include "ofxMidi.h"
 #include "ofxTiming.h"
 
+// need to get rid of all screen units.
+
 const float pxToMm = 1. / 10.;
 float carWidth = 2600, tireWidth = 550, tireHeight = 180, tireSpacing = 845;
 float directionSize = 15000, triangleSide = 50000;
@@ -11,8 +13,9 @@ float innerEllipseWidth = 3840, innerEllipseHeight = 2720;
 float peopleRadius = 300 * pxToMm;
 float offsetAmount = 600;
 float debounceTime = .05;
+float nearRange = 0, farRange = 3000;
 
-ofVec2f spka(-1, +1), spkb(-1, -1), spkc(+1, +1), spkd(+1, -1);
+ofVec2f spka(-1, -1), spkb(+1, -1), spkc(-1, +1), spkd(+1, +1);
 float spkRadius = 3000, spkSize = 100;
 bool isInside(float x, float left, float right) {
 	return left < x && x < right;
@@ -139,24 +142,36 @@ public:
 	ofVec2f getWorldPosition() const {
 		return position - ofGetWindowSize() / 2;
 	}
-	float getPresence() const {
-		return getWorldPosition().length();
+	float getDistance() const {
+		ofVec2f curWorld = getWorldPosition();
+		curWorld /= pxToMm;
+		float theta = ofDegToRad(getAngle());
+		ofVec2f curEllipse(cos(theta) * innerEllipseWidth, sin(theta) * innerEllipseHeight);
+		curEllipse /= 2;
+		return curWorld.length() - curEllipse.length(); 
 	}
 	virtual float getAngle() const {
 		return ofVec2f(1, 0).angle(getWorldPosition());
 	}
+	int getPan() {
+		return ofMap(getNormal().x, -1, 1, 0, 127);
+	}
+	int getPresence() {
+		return ofMap(getDistance(), nearRange, farRange, 127, 0, true);
+	}
 	void update(ofEventArgs& e) {
 		if(timer.tick()) {
 			int channel = 1 + id;
-			ofVec2f normal = getNormal();
-			float pan = ofMap(normal.x, -1, 1, 0, 127);
-			midi.sendControlChange(channel, 0, pan);
+			midi.sendControlChange(channel, 0, getPan());
+			midi.sendControlChange(channel, 1, getPresence());
 			midi.sendNote(channel, 64 + id * 6, 127);
 		}
 	}
 	virtual void draw() {
 		MiniFont::drawHighlight("Person " + ofToString(id), 0, 0);
-		MiniFont::drawHighlight(ofToString((int) getPresence()) + "mm", 0, 10);
+		MiniFont::drawHighlight(ofToString((int) getDistance()) + "mm", 0, 10);
+		MiniFont::drawHighlight("pan: " + ofToString(getPan()), 0, 20);
+		MiniFont::drawHighlight("presence: " + ofToString(getPresence()), 0, 30);
 	}
 };
 
@@ -317,8 +332,8 @@ public:
 		midi.listPorts();
 		midi.openPort();
 		
-		people.resize(6);
-		pulses.resize(6);
+		people.resize(2);
+		pulses.resize(2);
 		for(int i = 0; i < people.size(); i++) {
 			people[i].setup(ofVec2f(ofRandomWidth(), ofRandomHeight()));
 			pulses[i].setup(people[i].getAngle());
@@ -387,6 +402,14 @@ public:
 				}
 			}
 		}
+		
+		// get average presence
+		float presence = 0;
+		for(int i = 0; i < n; i++) {
+			presence += people[i].getPresence();
+		}
+		presence /= n;
+		midi.sendControlChange(1, 2, (int) presence);
 	}
 	void drawTriangle(ofVec2f center, ofVec2f p1, ofVec2f p2, float side) {
 		p1 = center + (p1 - center).normalize() * side;
@@ -423,7 +446,7 @@ public:
 			MiniFont::drawHighlight("Pulse " + ofToString(pulses[i].id), 240 * normal);
 			ofVec2f currentNormal = pulses[i].getCurrentNormal();
 			ofLine(150 * currentNormal, 190 * currentNormal);
-			ofLine(190 * currentNormal, people[pulses[i].personIndex].getNormal() * 190);
+			//ofLine(190 * currentNormal, people[pulses[i].personIndex].getNormal() * 190);
 		}
 		ofPopStyle();
 		ofPopMatrix();
